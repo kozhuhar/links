@@ -21,17 +21,11 @@
         /* use background coloring to contrast the html element from the body element */
         html {
             height: 100%;
-            /* forces page height to equal inner window height. */
-            background: gray;
         }
 
         body {
-            background: white;
             padding: 0;
             margin: 0;
-        }
-
-        body {
             min-height: 100%;
         }
 
@@ -41,7 +35,6 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: #FF0000;
         }
 
         #myVideo {
@@ -70,7 +63,8 @@
                 controls: true,
                 width: width,
                 height: height,
-                fluid: false,
+                fill: true,
+                responsive: true,
                 bigPlayButton: true,
                 controlBar: {
                     volumePanel: false
@@ -81,20 +75,7 @@
                         video: true,
                         maxLength: 10,
                         displayMilliseconds: false,
-                        debug: false,
-                        frameWidth: width,
-                        frameHeight: height,
-                        video: {
-                            // video media constraints: set resolution of camera
-                            width: {
-                                // ideal: width,
-                                max: width
-                            },
-                            height: {
-                                // ideal: height,
-                                max: height
-                            }
-                        },
+                        debug: false
                     }
                 }
             };
@@ -116,7 +97,9 @@
             });
 
             player.on('deviceReady', function () {
-                player.record().start();
+                player.fill(true);
+                // console.log(player.record());
+                // player.record().start();
             });
 
             player.on('error', function (element, error) {
