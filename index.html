@@ -82,14 +82,16 @@
                         maxLength: 10,
                         displayMilliseconds: false,
                         debug: false,
+                        frameWidth: width,
+                        frameHeight: height,
                         video: {
                             // video media constraints: set resolution of camera
                             width: {
-                                ideal: width,
+                                // ideal: width,
                                 max: width
                             },
                             height: {
-                                ideal: height,
+                                // ideal: height,
                                 max: height
                             }
                         },
@@ -133,7 +135,7 @@
                 console.log('finished recording: ', player.recordedData);
             });
 
-            // player.record().getDevice();
+            player.record().getDevice();
         }
     </script>
 
