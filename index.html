@@ -36,7 +36,7 @@
 <body>
   <div id = 'test'></div>
   <script>
-    if (typeof window.TelegramWebview !== 'undefined') {
+    if (typeof window.TelegramWebview !== 'undefined' || typeof window.TelegramWebviewProxy !== 'undefined' || typeof window.TelegramWebviewProxyProto !== 'undefined') {
         document.getElementById("test").innerText = "in telega";
     } else {
         document.getElementById("test").innerText = "not in telega";
