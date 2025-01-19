@@ -1,3 +1,56 @@
+var fps = function() {
+    var fpstime = 0;
+    var framecount = 0;
+
+    return {
+        value: 0,
+        tick: function(dt) {
+            if (fpstime > 0.25) {
+                // Calculate fps
+                this.value = Math.round(framecount / fpstime);
+                // Reset time and framecount
+                fpstime = 0;
+                framecount = 0;
+            }
+            
+            // Increase time and framecount
+            fpstime += dt;
+            framecount++;
+        }
+    };
+}();
+
+var looper = function() {
+    var _tick = null;
+
+    function _loop(dt) {
+        window.requestAnimationFrame(_loop);
+        if (_tick != null) {
+            _tick(dt);
+        }
+    }
+
+    return {
+        start: function(tick) {
+            if (typeof tick === "function") {
+                _tick = tick;
+            }
+            _loop(0);
+        }
+
+    };
+}()
+
+var newTile = function(column, row) {
+    return {column: column, row: row};
+}
+
+const loadImg = function(name) {
+    const gem1 = new Image();
+    gem1.src = name;
+    return gem1;
+}
+
 // The function gets called when the window is fully loaded
 window.onload = function() {
     // Get the canvas and context
@@ -5,15 +58,14 @@ window.onload = function() {
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
     var context = canvas.getContext("2d");
+
+    
     
     // Timing and frames per second
     var lastframe = 0;
-    var fpstime = 0;
-    var framecount = 0;
-    var fps = 0;
     
     // Mouse dragging
-    var drag = true;
+    var drag = false;
     
     // Level object
     var level = {
@@ -22,7 +74,7 @@ window.onload = function() {
         rows: 8,        // Number of tile rows
         gap: 4,         // space between tiles
         tiles: [],      // The two-dimensional tile array
-        selectedtile: { selected: false, column: 0, row: 0 }
+        activeTile: null
     };
 
     const side = Math.floor(Math.min(canvas.width, canvas.height - level.header) * 0.9);
@@ -33,13 +85,15 @@ window.onload = function() {
     level.y = Math.floor(level.header + (canvas.height - level.header - level.tileheight * level.rows)/2.0);
     
     // All of the different tile colors in RGB
-    var tilecolors = [[255, 128, 128],
-                      [128, 255, 128],
-                      [128, 128, 255],
-                      [255, 255, 128],
-                      [255, 128, 255],
-                      [128, 255, 255],
-                      [255, 255, 255]];
+    var tilecolors = [
+        loadImg("01.png"),
+        loadImg("02.png"),
+        loadImg("03.png"),
+        loadImg("04.png"),
+        loadImg("05.png"),
+        loadImg("06.png"),
+        loadImg("07.png")
+    ];
     
     // Clusters and moves that were found
     var clusters = [];  // { column, row, length, horizontal }
@@ -49,7 +103,7 @@ window.onload = function() {
     var currentmove = { column1: 0, row1: 0, column2: 0, row2: 0 };
     
     // Game states
-    var gamestates = { init: 0, ready: 1, resolve: 2 };
+    var gamestates = { init: 0, ready: 1, resolve: 2, gameover: 3 };
     var gamestate = gamestates.init;
     
     // Score
@@ -62,87 +116,35 @@ window.onload = function() {
     
     // Show available moves
     var showmoves = false;
-    
-    // The AI bot
-    var aibot = false;
-    
-    // Game Over
-    var gameover = false;
-    
-    // // Gui buttons
-    // var buttons = [ { x: 30, y: 240, width: 150, height: 50, text: "New Game"},
-    //                 { x: 30, y: 300, width: 150, height: 50, text: "Show Moves"},
-    //                 { x: 30, y: 360, width: 150, height: 50, text: "Enable AI Bot"}];
-    
-    // Initialize the game
-    function init() {
-        // Add mouse events
-        canvas.addEventListener("mousemove", onMouseMove);
-        canvas.addEventListener("mousedown", onMouseDown);
-        canvas.addEventListener("mouseup", onMouseUp);
-        canvas.addEventListener("mouseout", onMouseOut);
         
-        // Initialize the two-dimensional tile array
-        for (var i=0; i<level.columns; i++) {
-            level.tiles[i] = [];
-            for (var j=0; j<level.rows; j++) {
-                // Define a tile type and a shift parameter for animation
-                level.tiles[i][j] = { type: 0, shift:0 }
-            }
+    // Add mouse events
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("mouseout", onMouseOut);
+    
+    // Initialize the two-dimensional tile array
+    for (var i=0; i<level.columns; i++) {
+        level.tiles[i] = [];
+        for (var j=0; j<level.rows; j++) {
+            // Define a tile type and a shift parameter for animation
+            level.tiles[i][j] = { type: 0, shift:0 }
         }
-        
-        // New game
-        newGame();
-        
-        // Enter main loop
-        main(0);
     }
-    
-    // Main loop
-    function main(tframe) {
-        // Request animation frames
-        window.requestAnimationFrame(main);
         
-        // Update and render the game
-        update(tframe);
-        render();
-    }
-    
     // Update the game state
     function update(tframe) {
         var dt = (tframe - lastframe) / 1000;
         lastframe = tframe;
         
-        // Update the fps counter
-        updateFps(dt);
+        fps.tick(dt);
         
         if (gamestate == gamestates.ready) {
-            // Game is ready for player input
+            // Game is ready for player input. Do nothing.
             
             // Check for game over
             if (moves.length <= 0) {
-                gameover = true;
-            }
-            
-            // Let the AI bot make a move, if enabled
-            if (aibot) {
-                animationtime += dt;
-                if (animationtime > animationtimetotal) {
-                    // Check if there are moves available
-                    findMoves();
-                    
-                    if (moves.length > 0) {
-                        // Get a random valid move
-                        var move = moves[Math.floor(Math.random() * moves.length)];
-                        
-                        // Simulate a player using the mouse to swap two tiles
-                        mouseSwap(move.column1, move.row1, move.column2, move.row2);
-                    } else {
-                        // No moves left, Game Over. We could start a new game.
-                        // newGame();
-                    }
-                    animationtime = 0;
-                }
+                gamestate == gamestates.gameover
             }
         } else if (gamestate == gamestates.resolve) {
             // Game is busy resolving and animating clusters
@@ -230,21 +232,6 @@ window.onload = function() {
         }
     }
     
-    function updateFps(dt) {
-        if (fpstime > 0.25) {
-            // Calculate fps
-            fps = Math.round(framecount / fpstime);
-            
-            // Reset time and framecount
-            fpstime = 0;
-            framecount = 0;
-        }
-        
-        // Increase time and framecount
-        fpstime += dt;
-        framecount++;
-    }
-    
     // Draw text that is centered
     function drawCenterText(text, x, y, width) {
         var metrics = context.measureText(text);
@@ -266,15 +253,12 @@ window.onload = function() {
         // Display fps
         context.fillStyle = "#ffffff";
         context.font = "12px Verdana";
-        context.fillText("Fps: " + fps, 13, 50);
+        context.fillText("Fps: " + fps.value, 13, 50);
         
         // Draw score
         context.fillStyle = "#FFFFFF";
         context.font = "24px Verdana";
         drawCenterText("Score: "+score, canvas.width/2.0, 33, 150);
-        
-        // Draw buttons
-        // drawButtons();
         
         // Draw level background
         var levelwidth = level.columns * level.tilewidth;
@@ -294,30 +278,15 @@ window.onload = function() {
         }
         
         // Game Over overlay
-        if (gameover) {
+        if (gamestate == gamestates.gameover) {
             context.fillStyle = "rgba(0, 0, 0, 0.8)";
             context.fillRect(level.x, level.y, levelwidth, levelheight);
             
             context.fillStyle = "#ffffff";
             context.font = "24px Verdana";
-            drawCenterText("Game Over!", level.x, level.y + levelheight / 2 + 10, levelwidth);
+            drawCenterText("Game Over!", level.x + levelwidth/2.0, level.y + levelheight / 2, levelwidth);
         }
     }
-    
-    // Draw buttons
-    // function drawButtons() {
-    //     for (var i=0; i<buttons.length; i++) {
-    //         // Draw button shape
-    //         context.fillStyle = "#000000";
-    //         context.fillRect(buttons[i].x, buttons[i].y, buttons[i].width, buttons[i].height);
-            
-    //         // Draw button text
-    //         context.fillStyle = "#ffffff";
-    //         context.font = "18px Verdana";
-    //         var textdim = context.measureText(buttons[i].text);
-    //         context.fillText(buttons[i].text, buttons[i].x + (buttons[i].width-textdim.width)/2, buttons[i].y+30);
-    //     }
-    // }
     
     // Render tiles
     function renderTiles() {
@@ -325,29 +294,19 @@ window.onload = function() {
             for (var j=0; j<level.rows; j++) {
                 // Get the shift of the tile for animation
                 var shift = level.tiles[i][j].shift;
-                
-                // Calculate the tile coordinates
-                var coord = getTileCoordinate(i, j, 0, (animationtime / animationtimetotal) * shift);
-                
-                // Check if there is a tile present
-                if (level.tiles[i][j].type >= 0) {
-                    // Get the color of the tile
-                    var col = tilecolors[level.tiles[i][j].type];
-                    
-                    // Draw the tile using the color
-                    drawTile(coord.tilex, coord.tiley, col[0], col[1], col[2]);
-                }
-                
-                // Draw the selected tile
-                if (level.selectedtile.selected) {
-                    if (level.selectedtile.column == i && level.selectedtile.row == j) {
-                        // Draw a red tile
-                        drawTile(coord.tilex, coord.tiley, 255, 0, 0);
-                    }
+                if (gamestate == gamestates.resolve && (animationstate == 2 || animationstate == 3) && (currentmove.column1 == i && currentmove.row1 == j || currentmove.column2 == i && currentmove.row2 == j)) {
+                    // skip animated tiles
+                } else {
+                    // Calculate the tile coordinates
+                    var coord = getTileCoordinate(i, j, 0, (animationtime / animationtimetotal) * shift);                
+                    drawTile(coord.tilex, coord.tiley, level.tiles[i][j].type, level.activeTile != null && level.activeTile.column == i && level.activeTile.row == j ? true : false);
                 }
             }
         }
         
+
+
+
         // Render the swap animation
         if (gamestate == gamestates.resolve && (animationstate == 2 || animationstate == 3)) {
             // Calculate the x and y shift
@@ -355,28 +314,21 @@ window.onload = function() {
             var shifty = currentmove.row2 - currentmove.row1;
 
             // First tile
-            var coord1 = getTileCoordinate(currentmove.column1, currentmove.row1, 0, 0);
             var coord1shift = getTileCoordinate(currentmove.column1, currentmove.row1, (animationtime / animationtimetotal) * shiftx, (animationtime / animationtimetotal) * shifty);
-            var col1 = tilecolors[level.tiles[currentmove.column1][currentmove.row1].type];
+            var col1 = level.tiles[currentmove.column1][currentmove.row1].type;
             
             // Second tile
-            var coord2 = getTileCoordinate(currentmove.column2, currentmove.row2, 0, 0);
             var coord2shift = getTileCoordinate(currentmove.column2, currentmove.row2, (animationtime / animationtimetotal) * -shiftx, (animationtime / animationtimetotal) * -shifty);
-            var col2 = tilecolors[level.tiles[currentmove.column2][currentmove.row2].type];
+            var col2 = level.tiles[currentmove.column2][currentmove.row2].type;
             
-            // Draw a black background
-            drawTile(coord1.tilex, coord1.tiley, 0, 0, 0);
-            drawTile(coord2.tilex, coord2.tiley, 0, 0, 0);
             
             // Change the order, depending on the animation state
             if (animationstate == 2) {
-                // Draw the tiles
-                drawTile(coord1shift.tilex, coord1shift.tiley, col1[0], col1[1], col1[2]);
-                drawTile(coord2shift.tilex, coord2shift.tiley, col2[0], col2[1], col2[2]);
+                drawTile(coord1shift.tilex, coord1shift.tiley, col1);
+                drawTile(coord2shift.tilex, coord2shift.tiley, col2);
             } else {
-                // Draw the tiles
-                drawTile(coord2shift.tilex, coord2shift.tiley, col2[0], col2[1], col2[2]);
-                drawTile(coord1shift.tilex, coord1shift.tiley, col1[0], col1[1], col1[2]);
+                drawTile(coord2shift.tilex, coord2shift.tiley, col2);
+                drawTile(coord1shift.tilex, coord1shift.tiley, col1);
             }
         }
     }
@@ -389,9 +341,19 @@ window.onload = function() {
     }
     
     // Draw a tile with a color
-    function drawTile(x, y, r, g, b) {
-        context.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
-        context.fillRect(x + level.gap/2, y + level.gap/2, level.tilewidth - level.gap, level.tileheight - level.gap);
+    function drawTile(x, y, index, active) {
+        var gap = level.gap;
+        if (active == true) {
+            gap = Math.min(level.tilewidth, level.tileheight)/4;
+        }
+
+        if (index == -2) {
+            context.fillStyle = "rgb(0, 0, 0)";
+            context.fillRect(x + gap/2, y + gap/2, level.tilewidth - gap, level.tileheight - gap);
+            // context.clearRect(x + gap/2, y + gap/2, level.tilewidth - gap, level.tileheight - gap);
+        } else if (index >= 0 && index < tilecolors.length) {
+            context.drawImage(tilecolors[index], x + gap/2, y + gap/2, level.tilewidth - gap, level.tileheight - gap);
+        }
     }
     
     // Render clusters
@@ -435,9 +397,6 @@ window.onload = function() {
         
         // Set the gamestate to ready
         gamestate = gamestates.ready;
-        
-        // Reset game over
-        gameover = false;
         
         // Create the level
         createLevel();
@@ -681,26 +640,16 @@ window.onload = function() {
     
     // Get the tile under the mouse
     function getMouseTile(pos) {
-        // Calculate the index of the tile
         var tx = Math.floor((pos.x - level.x) / level.tilewidth);
         var ty = Math.floor((pos.y - level.y) / level.tileheight);
-        
-        // Check if the tile is valid
         if (tx >= 0 && tx < level.columns && ty >= 0 && ty < level.rows) {
-            // Tile is valid
             return {
                 valid: true,
                 x: tx,
                 y: ty
             };
         }
-        
-        // No valid tile
-        return {
-            valid: false,
-            x: 0,
-            y: 0
-        };
+        return null;
     }
     
     // Check if two tiles can be swapped
@@ -727,7 +676,7 @@ window.onload = function() {
         currentmove = {column1: c1, row1: r1, column2: c2, row2: r2};
     
         // Deselect
-        level.selectedtile.selected = false;
+        level.activeTile = null;
         
         // Start animation
         animationstate = 2;
@@ -741,16 +690,16 @@ window.onload = function() {
         var pos = getMousePos(canvas, e);
         
         // Check if we are dragging with a tile selected
-        if (drag && level.selectedtile.selected) {
+        if (drag && level.activeTile != null) {
             // Get the tile under the mouse
             mt = getMouseTile(pos);
-            if (mt.valid) {
+            if (mt != null) {
                 // Valid tile
                 
                 // Check if the tiles can be swapped
-                if (canSwap(mt.x, mt.y, level.selectedtile.column, level.selectedtile.row)){
+                if (canSwap(mt.x, mt.y, level.activeTile.column, level.activeTile.row)){
                     // Swap the tiles
-                    mouseSwap(mt.x, mt.y, level.selectedtile.column, level.selectedtile.row);
+                    mouseSwap(mt.x, mt.y, level.activeTile.column, level.activeTile.row);
                 }
             }
         }
@@ -763,60 +712,36 @@ window.onload = function() {
         
         // Start dragging
         if (!drag) {
-            // Get the tile under the mouse
             mt = getMouseTile(pos);
             
-            if (mt.valid) {
+            if (mt != null) {
                 // Valid tile
                 var swapped = false;
-                if (level.selectedtile.selected) {
-                    if (mt.x == level.selectedtile.column && mt.y == level.selectedtile.row) {
+                if (level.activeTile != null) {
+                    if (mt.x == level.activeTile.column && mt.y == level.activeTile.row) {
                         // Same tile selected, deselect
-                        level.selectedtile.selected = false;
+                        level.activeTile = null;
                         drag = true;
                         return;
-                    } else if (canSwap(mt.x, mt.y, level.selectedtile.column, level.selectedtile.row)){
+                    } else if (canSwap(mt.x, mt.y, level.activeTile.column, level.activeTile.row)){
                         // Tiles can be swapped, swap the tiles
-                        mouseSwap(mt.x, mt.y, level.selectedtile.column, level.selectedtile.row);
+                        mouseSwap(mt.x, mt.y, level.activeTile.column, level.activeTile.row);
                         swapped = true;
                     }
                 }
                 
                 if (!swapped) {
                     // Set the new selected tile
-                    level.selectedtile.column = mt.x;
-                    level.selectedtile.row = mt.y;
-                    level.selectedtile.selected = true;
+                    level.activeTile = newTile(mt.x, mt.y);
                 }
             } else {
                 // Invalid tile
-                level.selectedtile.selected = false;
+                level.activeTile = null;
             }
 
             // Start dragging
             drag = true;
         }
-        
-        // // Check if a button was clicked
-        // for (var i=0; i<buttons.length; i++) {
-        //     if (pos.x >= buttons[i].x && pos.x < buttons[i].x+buttons[i].width &&
-        //         pos.y >= buttons[i].y && pos.y < buttons[i].y+buttons[i].height) {
-                
-        //         // Button i was clicked
-        //         if (i == 0) {
-        //             // New Game
-        //             newGame();
-        //         } else if (i == 1) {
-        //             // Show Moves
-        //             showmoves = !showmoves;
-        //             buttons[i].text = (showmoves?"Hide":"Show") + " Moves";
-        //         } else if (i == 2) {
-        //             // AI Bot
-        //             aibot = !aibot;
-        //             buttons[i].text = (aibot?"Disable":"Enable") + " AI Bot";
-        //         }
-        //     }
-        // }
     }
     
     function onMouseUp(e) {
@@ -838,6 +763,11 @@ window.onload = function() {
         };
     }
     
-    // Call init to start the game
-    init();
+    // New game
+    newGame();    
+    // Enter main loop
+    looper.start(function(tframe) {
+        update(tframe);
+        render();
+    });
 };
