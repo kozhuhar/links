@@ -27,8 +27,8 @@ const newGame = function(canvas) {
         // Level object
         var level = {
             header: 66,     // size of the header
-            columns: 6,     // Number of tile columns
-            rows: 6,        // Number of tile rows
+            columns: 5,     // Number of tile columns
+            rows: 7,        // Number of tile rows
             gap: 4,         // space between tiles
             tiles: [],      // The two-dimensional tile array
         };
@@ -37,7 +37,7 @@ const newGame = function(canvas) {
         level.tilewidth = Math.floor(side/level.columns);
         level.x = Math.floor((canvas.width - level.tilewidth * level.columns)/2.0);
     
-        level.tileheight = Math.floor(side/level.rows);
+        level.tileheight = level.tilewidth;
         level.y = Math.floor(level.header + (canvas.height - level.header - level.tileheight * level.rows)/2.0);
 
     // Initialize the two-dimensional tile array
