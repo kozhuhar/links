@@ -198,10 +198,6 @@ var newRenderer = function(context, canvas, game) {
                 context.drawImage(bg, (canvas.width - bg.width*scale)/2.0, (canvas.height - bg.height*scale)/2.0, bg.width*scale, bg.height*scale);
             }
 
-            
-
-            
-
             // Draw level background
             var levelwidth = game.level.columns * game.level.tilewidth;
             var levelheight = game.level.rows * game.level.tileheight;
@@ -287,10 +283,10 @@ window.onload = function() {
     var game = newGame(canvas);
     
     // Add mouse events
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mousedown", onMouseDown);
-    canvas.addEventListener("mouseup", onMouseUp);
-    canvas.addEventListener("mouseout", onMouseOut);
+    canvas.addEventListener("touchmove", onMouseMove);
+    canvas.addEventListener("touchstart", onMouseDown);
+    canvas.addEventListener("touchend", onMouseUp);
+    canvas.addEventListener("touchcancel", onMouseOut);
 
     var renderer = newRenderer(context, canvas, game);
         
@@ -772,9 +768,10 @@ window.onload = function() {
     // Get the mouse position
     function getMousePos(canvas, e) {
         var rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
         return {
-            x: Math.round((e.clientX - rect.left)/(rect.right - rect.left)*canvas.width),
-            y: Math.round((e.clientY - rect.top)/(rect.bottom - rect.top)*canvas.height)
+            x: Math.round(((touch.clientX - rect.left) / (rect.right - rect.left)) * canvas.width),
+            y: Math.round(((touch.clientY - rect.top) / (rect.bottom - rect.top)) * canvas.height),
         };
     }
     
