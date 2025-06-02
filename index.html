@@ -47,15 +47,29 @@
                     searchParams.searchParams.set('utm_source', source);
                 }
 
-                if (searchParams.searchParams.get('uniqueId') != null && searchParams.searchParams.get('uniqueId') != '') {
+
+
+                if (searchParams.searchParams.get('uniqueId') != null && searchParams.searchParams.get('uniqueId') !=
+                    '') {
                     searchParams.searchParams.set('businessId', searchParams.searchParams.get('uniqueId'));
                 }
                 document.getElementById("final_link").innerText = searchParams.toString()
+
+
+                var withBI = true;
 
                 if (
                     searchParams.searchParams.get('businessId') == '' ||
                     searchParams.searchParams.get('businessId') == null
                 ) {
+                    withBI = false;
+
+                    if (searchParams.pathname.startsWith("/business")) {
+                        withBI = true;
+                    }
+                }
+
+                if (!withBI) {
                     document.getElementById("final_link").innerText +=
                         "\n\nВНИМАНИЕ - ссылка не ведет на витрину и лучше ее не постить!";
                 }
